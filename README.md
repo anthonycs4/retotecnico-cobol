@@ -21,7 +21,7 @@ git clone https://github.com/anthonycs4/retotecnico-cobol.git
 cd retotecnico-cobol
 # Crear y activar un entorno virtual (opcional pero recomendado)
 python -m venv venv
-source venv/bin/activate  # En Windows usa: venv\Scripts\activate
+venv\Scripts\activate
 #Agregar una archivo csv con el nombre:
 transacciones.csv
 #O usar el que esta por defecto
