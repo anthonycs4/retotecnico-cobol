@@ -52,17 +52,20 @@ def leer_transacciones(archivo_csv):
     try:
         with open(archivo_csv, mode='r', encoding='utf-8') as file:
             lector = csv.DictReader(file)
+            if not lector.fieldnames or "id" not in lector.fieldnames or "tipo" not in lector.fieldnames or "monto" not in lector.fieldnames:
+                print("Error: El archivo CSV no tiene las columnas esperadas (id, tipo, monto).")
+                return []
+
             for fila in lector:
-                # Validación de datos
                 try:
                     id_transaccion = int(fila["id"])
                     tipo_transaccion = fila["tipo"]
                     monto_transaccion = float(fila["monto"])
                     if tipo_transaccion not in ["Crédito", "Débito"]:
                         raise ValueError(f"Tipo de transacción inválido: {tipo_transaccion}")
-                except ValueError as e:
-                    print(f"Error en los datos de la transacción ID {fila['id']}: {e}")
-                    continue  # Skip the invalid transaction
+                except (ValueError, KeyError) as e:
+                    print(f"Error en los datos de la transacción: {e}")
+                    continue  # Saltar transacción inválida
 
                 transacciones.append({
                     "id": id_transaccion,
@@ -80,42 +83,46 @@ def leer_transacciones(archivo_csv):
 
 def calcular_balance(transacciones):
     """Calcula el balance final sumando Créditos y restando Débitos."""
-    credito_total = sum(t["monto"] for t in transacciones if t["tipo"] == "Crédito")
-    debito_total = sum(t["monto"] for t in transacciones if t["tipo"] == "Débito")
-    return credito_total - debito_total
+    if not transacciones:
+        return 0.00
+    return sum(t["monto"] if t["tipo"] == "Crédito" else -t["monto"] for t in transacciones)
 
 def transaccion_mayor(transacciones):
     """Encuentra la transacción con el mayor monto."""
+    if not transacciones:
+        return None, None
     mayor = max(transacciones, key=lambda t: t["monto"])
     return mayor["id"], mayor["monto"]
 
 def contar_transacciones(transacciones):
     """Cuenta la cantidad de transacciones de cada tipo."""
+    if not transacciones:
+        return 0, 0
     credito = sum(1 for t in transacciones if t["tipo"] == "Crédito")
     debito = sum(1 for t in transacciones if t["tipo"] == "Débito")
     return credito, debito
 
 def mostrar_reporte(balance, max_transaccion, conteo, exportar=False):
     """Imprime el reporte de transacciones en la terminal y exporta el reporte si se solicita."""
+    id_mayor, monto_mayor = max_transaccion
     reporte = f"""
 Reporte de Transacciones
 ---------------------------------------------
 Balance Final: {balance:.2f}
-Transacción de Mayor Monto: ID {max_transaccion[0]} - {max_transaccion[1]:.2f}
+Transacción de Mayor Monto: {f'ID {id_mayor} - {monto_mayor:.2f}' if id_mayor is not None else 'No disponible'}
 Conteo de Transacciones: Crédito: {conteo[0]} Débito: {conteo[1]}
 """
     print(reporte)
 
     if exportar:
-        # Exportar el reporte a un archivo JSON y CSV
         try:
             with open('reporte.json', 'w') as json_file:
                 json.dump({
                     "balance_final": balance,
                     "transaccion_mayor": {
-                        "id": max_transaccion[0],
-                        "monto": max_transaccion[1]
-                    },
+                        "id": id_mayor,
+                        "monto": monto_mayor
+                    } if id_mayor is not None else None,
                     "conteo_transacciones": {
                         "credito": conteo[0],
                         "debito": conteo[1]
@@ -126,35 +133,21 @@ Conteo de Transacciones: Crédito: {conteo[0]} Débito: {conteo[1]}
             with open('reporte.csv', 'w', newline='', encoding='utf-8') as csv_file:
                 writer = csv.writer(csv_file)
                 writer.writerow(["Balance Final", "Transacción Mayor ID", "Transacción Mayor Monto", "Conteo Crédito", "Conteo Débito"])
-                writer.writerow([balance, max_transaccion[0], max_transaccion[1], conteo[0], conteo[1]])
+                writer.writerow([
+                    balance,
+                    id_mayor if id_mayor is not None else "No disponible",
+                    monto_mayor if monto_mayor is not None else "No disponible",
+                    conteo[0], conteo[1]
+                ])
             print("Reporte exportado a reporte.csv")
         except Exception as e:
             print(f"Error al exportar el reporte: {e}")
-
-
-if __name__ == "__main__":
-    if len(sys.argv) != 2:
-        print("Uso: python main.py <archivo_csv>")
-        sys.exit(1)
-
-    archivo_csv = sys.argv[1]
-    transacciones = leer_transacciones(archivo_csv)
-    if not transacciones:
-        print("No se encontraron transacciones válidas.")
-        sys.exit(1)
-
-    balance = calcular_balance(transacciones)
-    max_transaccion = transaccion_mayor(transacciones)
-    conteo = contar_transacciones(transacciones)
-    
-    # Mostrar el reporte y exportar el reporte a archivos JSON y CSV
-    mostrar_reporte(balance, max_transaccion, conteo, exportar=True)
 
 ```
 ### Main.py
 ```python
 import sys
-from transacciones import leer_transacciones, calcular_balance, transaccion_mayor, contar_transacciones, mostrar_reporte  # Importar mostrar_reporte
+from transacciones import leer_transacciones, calcular_balance, transaccion_mayor, contar_transacciones, mostrar_reporte
 
 def main():
     if len(sys.argv) != 2:
@@ -164,18 +157,15 @@ def main():
     archivo_csv = sys.argv[1]
     transacciones = leer_transacciones(archivo_csv)
 
+    if not transacciones:
+        print("No se encontraron transacciones válidas.")
+        sys.exit(1)
+
     balance = calcular_balance(transacciones)
     id_mayor, monto_mayor = transaccion_mayor(transacciones)
     credito, debito = contar_transacciones(transacciones)
 
-    print("Reporte de Transacciones")
-    print("---------------------------------------------")
-    print(f"Balance Final: {balance:.2f}")
-    print(f"Transacción de Mayor Monto: ID {id_mayor} - {monto_mayor:.2f}")
-    print(f"Conteo de Transacciones: Crédito: {credito} Débito: {debito}")
-
-    # Mostrar el reporte y exportar el reporte a archivos JSON y CSV
-    mostrar_reporte(balance, (id_mayor, monto_mayor), (credito, debito), exportar=True)  # Activamos la exportación aquí
+    mostrar_reporte(balance, (id_mayor, monto_mayor), (credito, debito), exportar=True)
 
 if __name__ == "__main__":
     main()

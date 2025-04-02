@@ -17,7 +17,6 @@ def main():
     id_mayor, monto_mayor = transaccion_mayor(transacciones)
     credito, debito = contar_transacciones(transacciones)
 
-    # Ya no imprimimos el reporte aquí, lo imprimimos en `mostrar_reporte`
     mostrar_reporte(balance, (id_mayor, monto_mayor), (credito, debito), exportar=True)
 
 if __name__ == "__main__":
